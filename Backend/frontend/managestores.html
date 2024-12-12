@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Store Management - THE ALL NEW SUPERMART</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 0 20px;
+        }
+
+        .search-container {
+            margin: 20px 0;
+            padding: 0 20px;
+        }
+
+        .search-input {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 300px;
+            font-size: 16px;
+        }
+
+        h1 {
+            margin: 0;
+            color: #333;
+        }
+
+        .add-store-btn {
+            padding: 12px 24px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .add-store-btn:hover {
+            background-color: #218838;
+        }
+
+        .stores-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .store-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .store-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            z-index: 1000;
+            overflow-y: auto;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .modal-content {
+            position: relative;
+            background-color: white;
+            margin: 20px auto;
+            padding: 30px;
+            width: 90%;
+            max-width: 600px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .modal-header {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            padding: 15px 0;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .close-btn {
+            position: absolute;
+            right: 20px;
+            top: 15px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+            z-index: 1;
+            transition: color 0.3s;
+        }
+
+        .close-btn:hover {
+            color: #000;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+            padding: 0 10px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-size: 16px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .submit-btn {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s;
+        }
+
+        .submit-btn:hover {
+            background-color: #0056b3;
+        }
+
+        .error-message {
+            color: #dc3545;
+            margin-top: 5px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            grid-column: 1/-1;
+        }
+
+        @media (max-width: 768px) {
+            .modal {
+                padding: 10px;
+            }
+            
+            .modal-content {
+                margin: 10px auto;
+                padding: 20px;
+            }
+
+            .search-input {
+                width: 100%;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 15px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Store Management</h1>
+        <button class="add-store-btn" onclick="openAddStoreModal()">Add New Store</button>
+    </div>
+
+    <div class="search-container">
+        <input type="text" 
+               class="search-input" 
+               id="searchInput" 
+               placeholder="Search stores by name...">
+    </div>
+
+    <div id="storesContainer" class="stores-grid">
+        <!-- Stores will be dynamically added here -->
+        <div class="loading">Loading stores...</div>
+    </div>
+
+    <div id="addStoreModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add New Store</h2>
+                <span class="close-btn" onclick="closeAddStoreModal()">&times;</span>
+            </div>
+            <form id="addStoreForm" onsubmit="submitStore(event)">
+                <div class="form-group">
+                    <label for="storeName">Store Name:</label>
+                    <input type="text" id="storeName" required>
+                    <div class="error-message" id="storeNameError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="address">Store Address:</label>
+                    <input type="text" id="address" required>
+                    <div class="error-message" id="addressError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="latitude">Latitude:</label>
+                    <input type="number" id="latitude" step="any" required>
+                    <div class="error-message" id="latitudeError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="longitude">Longitude:</label>
+                    <input type="number" id="longitude" step="any" required>
+                    <div class="error-message" id="longitudeError"></div>
+                </div>
+                
+                <button type="submit" class="submit-btn">Add Store</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', loadStores);
+
+        function openAddStoreModal() {
+            document.getElementById('addStoreModal').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAddStoreModal() {
+            document.getElementById('addStoreModal').style.display = 'none';
+            document.body.style.overflow = 'auto';
+            clearForm();
+        }
+
+        window.onclick = function(event) {
+            const modal = document.getElementById('addStoreModal');
+            if (event.target === modal) {
+                closeAddStoreModal();
+            }
+        }
+
+        function clearForm() {
+            document.getElementById('addStoreForm').reset();
+            document.querySelectorAll('.error-message').forEach(elem => {
+                elem.style.display = 'none';
+            });
+        }
+
+        async function loadStores() {
+            const container = document.getElementById('storesContainer');
+            container.innerHTML = '<div class="loading">Loading stores...</div>';
+            
+            try {
+                const response = await fetch('process.env.URL_BASE/api/stores/all');
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayStores(data.stores);
+                } else {
+                    console.error('Failed to load stores:', data.error);
+                    container.innerHTML = `<div class="loading">Error loading stores: ${data.error}</div>`;
+                }
+            } catch (error) {
+                console.error('Error loading stores:', error);
+                container.innerHTML = '<div class="loading">Error loading stores. Please try again.</div>';
+            }
+        }
+
+        function displayStores(stores) {
+            const container = document.getElementById('storesContainer');
+            container.innerHTML = '';
+            
+            if (stores.length === 0) {
+                container.innerHTML = '<div class="loading">No stores found</div>';
+                return;
+            }
+            
+            stores.forEach(store => {
+                const storeCard = document.createElement('div');
+                storeCard.className = 'store-card';
+                storeCard.innerHTML = `
+                    <h3>${store.storeName}</h3>
+                    <p><strong>Address:</strong> ${store.address}</p>
+                    <p><strong>Coordinates:</strong> ${store.location.coordinates[1]}, ${store.location.coordinates[0]}</p>
+                    <p><strong>Added:</strong> ${new Date(store.createdAt).toLocaleDateString()}</p>
+                `;
+                container.appendChild(storeCard);
+            });
+        }
+
+        async function submitStore(event) {
+            event.preventDefault();
+            
+            const submitBtn = event.target.querySelector('.submit-btn');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Adding Store...';
+            
+            const storeName = document.getElementById('storeName').value;
+            const address = document.getElementById('address').value;
+            const latitude = parseFloat(document.getElementById('latitude').value);
+            const longitude = parseFloat(document.getElementById('longitude').value);
+
+            try {
+                const response = await fetch('process.env.URL_BASE/api/stores/create', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        storeName,
+                        address,
+                        latitude,
+                        longitude
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    closeAddStoreModal();
+                    await loadStores();
+                    alert('Store added successfully!');
+                } else {
+                    alert(data.error || 'Failed to add store');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error adding store. Please try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Add Store';
+            }
+        }
+
+        // Debounced search function
+        let searchTimeout;
+        const searchInput = document.getElementById('searchInput');
+        searchInput.addEventListener('input', (e) => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(async () => {
+                const searchTerm = e.target.value.trim();
+                
+                try {
+                    if (!searchTerm) {
+                        await loadStores();
+                        return;
+                    }
+
+                    const response = await fetch(`process.env.URL_BASE/api/stores/search?name=${encodeURIComponent(searchTerm)}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        displayStores(data.stores);
+                    } else {
+                        console.error('Search failed:', data.error);
+                        document.getElementById('storesContainer').innerHTML = 
+                            `<div class="loading">Search failed: ${data.error}</div>`;
+                    }
+                } catch (error) {
+                    console.error('Error searching stores:', error);
+                    document.getElementById('storesContainer').innerHTML = 
+                        '<div class="loading">Error searching stores. Please try again.</div>';
+                }
+            }, 300);
+        });
+    </script>
+</body>
+</html>
