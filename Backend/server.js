@@ -4,15 +4,6 @@ const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
 
-// Import store management functions
-const { 
-    Store, 
-    createStore, 
-    getAllStores, 
-    findStoresNearLocation, 
-    searchStoresByName 
-} = require('./admin_management/manage_stores');
-
 const app = express();
 
 // Middleware
@@ -20,7 +11,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from frontend directory
+// Serve static files from the frontend directory
 app.use(express.static(path.join(__dirname, 'frontend')));
 
 // MongoDB Connection
@@ -31,52 +22,83 @@ mongoose.connect(process.env.MONGODB_URI, {
 .then(() => console.log('Connected to MongoDB'))
 .catch(err => console.error('Error connecting to MongoDB:', err));
 
+// Store Schema
+const storeSchema = new mongoose.Schema({
+    storeName: {
+        type: String,
+        required: true
+    },
+    address: {
+        type: String,
+        required: true
+    },
+    location: {
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [Number],
+            required: true
+        }
+    }
+});
+
+// Create index for geospatial queries
+storeSchema.index({ location: '2dsphere' });
+
+// Store Model
+const Store = mongoose.model('Store', storeSchema);
+
 // Store Management Routes
 app.get('/api/stores/all', async (req, res) => {
     try {
-        const result = await getAllStores();
-        if (result.success) {
-            res.json(result);
-        } else {
-            res.status(400).json(result);
-        }
+        const stores = await Store.find();
+        res.json({ success: true, stores });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error('youhave reached Error fetching stores:', error);
+        res.status(500).json({ success: false, error: 'Error fetching stores' });
     }
 });
 
 app.post('/api/stores/create', async (req, res) => {
     try {
-        const storeData = {
-            storeName: req.body.storeName,
-            address: req.body.address,
-            latitude: req.body.latitude,
-            longitude: req.body.longitude
-        };
+        const { storeName, address, latitude, longitude } = req.body;
         
-        const result = await createStore(storeData);
-        if (result.success) {
-            res.json(result);
-        } else {
-            res.status(400).json(result);
-        }
+        const newStore = new Store({
+            storeName,
+            address,
+            location: {
+                type: 'Point',
+                coordinates: [longitude, latitude] // MongoDB uses [longitude, latitude] order
+            }
+        });
+
+        await newStore.save();
+        res.json({ success: true, store: newStore });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Error creating store:', error);
+        res.status(500).json({ success: false, error: 'Error creating store' });
     }
 });
 
-app.get('/api/stores/search', async (req, res) => {
+app.delete('/api/stores/delete/:id', async (req, res) => {
     try {
-        const { name } = req.query;
-        const result = await searchStoresByName(name);
-        if (result.success) {
-            res.json(result);
-        } else {
-            res.status(400).json(result);
+        const result = await Store.findByIdAndDelete(req.params.id);
+        if (!result) {
+            return res.status(404).json({ success: false, error: 'Store not found' });
         }
+        res.json({ success: true });
     } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
+        console.error('Error deleting store:', error);
+        res.status(500).json({ success: false, error: 'Error deleting store' });
     }
+});
+
+// Serve managestores.html
+app.get('/managestores', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend/managestores.html'));
 });
 
 // Admin route
@@ -84,9 +106,16 @@ app.get('/admin', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend/admin.html'));
 });
 
-// Basic route for testing
-app.get('/', (req, res) => {
-    res.send('Welcome to THE ALL NEW SUPERMART API');
+// Admin login API endpoint
+app.post('/api/admin/login', (req, res) => {
+    const { username, password } = req.body;
+    // Add your authentication logic here
+    // For testing purposes:
+    if (username === 'admin' && password === 'password') {
+        res.json({ token: 'dummy_token' });
+    } else {
+        res.status(401).json({ message: 'Invalid credentials' });
+    }
 });
 
 // Error handling middleware

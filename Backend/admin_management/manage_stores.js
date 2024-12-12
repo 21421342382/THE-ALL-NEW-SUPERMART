@@ -52,7 +52,10 @@ async function createStore(storeData) {
     } catch (error) {
         return {
             success: false,
-            error: error.message
+            error: error.message,
+            errorCode: error.code,
+            errorType: error.name,
+            details: error.errors
         };
     }
 }
@@ -68,7 +71,10 @@ async function getAllStores() {
     } catch (error) {
         return {
             success: false,
-            error: error.message
+            error: error.message,
+            errorCode: error.code,
+            errorType: error.name,
+            details: error.errors
         };
     }
 }
@@ -95,7 +101,10 @@ async function findStoresNearLocation(latitude, longitude, radiusInKm = 5) {
     } catch (error) {
         return {
             success: false,
-            error: error.message
+            error: error.message,
+            errorCode: error.code,
+            errorType: error.name,
+            details: error.errors
         };
     }
 }
@@ -114,7 +123,80 @@ async function searchStoresByName(searchTerm) {
     } catch (error) {
         return {
             success: false,
-            error: error.message
+            error: error.message,
+            errorCode: error.code,
+            errorType: error.name,
+            details: error.errors
+        };
+    }
+}
+
+// Function to update a store
+async function updateStore(storeId, updateData) {
+    try {
+        const updatedStore = await Store.findByIdAndUpdate(
+            storeId,
+            {
+                $set: {
+                    storeName: updateData.storeName,
+                    location: {
+                        type: "Point",
+                        coordinates: [updateData.longitude, updateData.latitude]
+                    },
+                    address: updateData.address
+                }
+            },
+            { new: true, runValidators: true }
+        );
+
+        if (!updatedStore) {
+            return {
+                success: false,
+                error: "Store not found",
+                errorType: "NotFoundError"
+            };
+        }
+
+        return {
+            success: true,
+            store: updatedStore
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            errorType: error.name,
+            details: error.errors
+        };
+    }
+}
+
+// Function to delete a store
+async function deleteStore(storeId) {
+    try {
+        const deletedStore = await Store.findByIdAndDelete(storeId);
+
+        if (!deletedStore) {
+            return {
+                success: false,
+                error: "Store not found",
+                errorType: "NotFoundError"
+            };
+        }
+
+        return {
+            success: true,
+            message: "Store successfully deleted",
+            store: deletedStore
+        };
+    } catch (error) {
+        return {
+            success: false,
+            error: error.message,
+            errorCode: error.code,
+            errorType: error.name,
+            details: error.errors
         };
     }
 }
@@ -124,5 +206,7 @@ module.exports = {
     createStore,
     getAllStores,
     findStoresNearLocation,
-    searchStoresByName
+    searchStoresByName,
+    updateStore,
+    deleteStore
 };
