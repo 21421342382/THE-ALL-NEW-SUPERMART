@@ -96,7 +96,7 @@ app.delete('/api/stores/delete/:id', async (req, res) => {
     }
 });
 
-// User Schema
+
 const userSchema = new mongoose.Schema({
     cart: {
         type: Array,
@@ -136,11 +136,20 @@ const userSchema = new mongoose.Schema({
 });
 
 // User Model
-const User = mongoose.model('User', userSchema);
+const User = mongoose.model('users', userSchema);
 
 // User Management Routes
 app.post('/api/users/create', async (req, res) => {
-    const { cart, my_order_price, orderHistory, price, phone, location, orders } = req.body;
+    const {
+        phone,
+        location,
+        cart = [], // Default to empty array if not provided
+        orderHistory = [], // Default to empty array if not provided
+        my_order_price = 0, // Default to 0 if not provided
+        price = 0, // Default to 0 if not provided
+        orders = [] // Default to empty array if not provided
+    } = req.body;
+
     const newUser = new User({ cart, my_order_price, orderHistory, price, phone, location, orders });
     try {
         await newUser.save();
@@ -165,13 +174,15 @@ app.delete('/api/users/delete/:id', async (req, res) => {
 });
 
 app.get('/api/users/all', async (req, res) => {
-    const result = await User.find();
-    if (result.success) {
-        res.json({ success: true, users: result.users });
-    } else {
-        res.status(500).json({ success: false, error: result.error });
+    try {
+        const users = await User.find();
+        res.json({ success: true, users });
+    } catch (error) {
+        console.error('Error fetching users:', error);
+        res.status(500).json({ success: false, error: 'Error fetching users' });
     }
 });
+
 
 app.put('/api/users/edit/:id', async (req, res) => {
     try {

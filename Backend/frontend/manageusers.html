@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Users</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <style>
+        .loader {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .pagination button {
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Manage Users</h2>
+
+        <!-- Search Bar -->
+        <div class="input-group mb-3">
+            <input type="text" id="searchInput" class="form-control" placeholder="Search Users by Phone...">
+            <button class="btn btn-primary" onclick="searchUsers()">Search</button>
+        </div>
+
+        <!-- Create New User Button -->
+        <button class="btn btn-success mb-3" onclick="openCreateModal()">Create New User</button>
+
+        <!-- User Table -->
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Phone</th>
+                    <th>Location</th>
+                    <th>My Order Price</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="userTable">
+                <!-- Dynamic rows will be appended here -->
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+
+        <!-- Loader -->
+        <div class="loader" id="loader">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Edit Modal -->
+        <div class="modal" id="editModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit User</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editForm">
+                            <div class="mb-3">
+                                <label for="editPhone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="editPhone">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editLocation" class="form-label">Location (Coordinates)</label>
+                                <input type="text" class="form-control" id="editLocation">
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="saveChanges()">Save Changes</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Modal -->
+        <div class="modal" id="createModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create User</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="createForm">
+                            <div class="mb-3">
+                                <label for="createPhone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="createPhone">
+                            </div>
+                            <div class="mb-3">
+                                <label for="createLocation" class="form-label">Location (Coordinates)</label>
+                                <input type="text" class="form-control" id="createLocation">
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="createUser()">Create User</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let users = [];
+        let currentPage = 1;
+        const rowsPerPage = 5;
+
+        // Fetch Users from API
+        async function fetchUsers() {
+            showLoader();
+            try {
+                const response = await fetch('http://localhost:5000/api/users/all');
+                if (!response.ok) throw new Error('Failed to fetch users');
+                const data = await response.json();
+                users = data.users;
+                renderTable();
+            } catch (error) {
+                console.error('Error fetching users:', error);
+                alert('Failed to load user data. Please try again.');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Render User Table
+        function renderTable() {
+            const tableBody = document.getElementById('userTable');
+            tableBody.innerHTML = '';
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedUsers = users.slice(start, end);
+
+            paginatedUsers.forEach((user, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${start + index + 1}</td>
+                    <td>${user.phone}</td>
+                    <td>${user.location.coordinates.join(', ')}</td>
+                    <td>${user.my_order_price}</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="openEditModal('${user._id}')">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteUser('${user._id}')">Delete</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            renderPagination();
+        }
+
+        // Render Pagination
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+            const totalPages = Math.ceil(users.length / rowsPerPage);
+
+            for (let i = 1; i <= totalPages; i++) {
+                const button = document.createElement('button');
+                button.textContent = i;
+                button.className = `btn ${i === currentPage ? 'btn-primary' : 'btn-outline-primary'}`;
+                button.onclick = () => {
+                    currentPage = i;
+                    renderTable();
+                };
+                pagination.appendChild(button);
+            }
+        }
+
+        // Show Loader
+        function showLoader() {
+            document.getElementById('loader').style.display = 'block';
+        }
+
+        // Hide Loader
+        function hideLoader() {
+            document.getElementById('loader').style.display = 'none';
+        }
+
+        // Search Users
+        function searchUsers() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filteredUsers = users.filter(user => user.phone.toLowerCase().includes(query));
+            users = query ? filteredUsers : users;
+            currentPage = 1;
+            renderTable();
+        }
+
+        // Open Edit Modal
+        function openEditModal(userId) {
+            const user = users.find(u => u._id === userId);
+            document.getElementById('editPhone').value = user.phone;
+            document.getElementById('editLocation').value = user.location.coordinates.join(', ');
+            document.getElementById('editModal').dataset.userId = userId;
+            const editModal = new bootstrap.Modal(document.getElementById('editModal'));
+            editModal.show();
+        }
+
+        // Save Changes
+        async function saveChanges() {
+            const phone = document.getElementById('editPhone').value;
+            const location = document.getElementById('editLocation').value.split(',').map(Number);
+            const userId = document.getElementById('editModal').dataset.userId;
+
+            try {
+                const response = await fetch(`http://localhost:5000/api/users/edit/${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, location: { type: 'Point', coordinates: location } })
+                });
+                if (!response.ok) throw new Error('Failed to update user');
+                alert('User updated successfully!');
+                fetchUsers();
+            } catch (error) {
+                console.error('Error updating user:', error);
+                alert('Failed to save changes.');
+            }
+        }
+
+        // Delete User
+        async function deleteUser(userId) {
+            if (!confirm('Are you sure you want to delete this user?')) return;
+
+            try {
+                const response = await fetch(`http://localhost:5000/api/users/delete/${userId}`, {
+                    method: 'DELETE'
+                });
+                if (!response.ok) throw new Error('Failed to delete user');
+                alert('User deleted successfully!');
+                fetchUsers();
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                alert('Failed to delete user.');
+            }
+        }
+
+        // Open Create Modal
+        function openCreateModal() {
+            const createModal = new bootstrap.Modal(document.getElementById('createModal'));
+            createModal.show();
+        }
+
+        // Create User
+        async function createUser() {
+            const phone = document.getElementById('createPhone').value;
+            const location = document.getElementById('createLocation').value.split(',').map(Number);
+
+            try {
+                const response = await fetch('http://localhost:5000/api/users/create', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, location: { type: 'Point', coordinates: location } })
+                });
+                if (!response.ok) throw new Error('Failed to create user');
+                alert('User created successfully!');
+                fetchUsers();
+            } catch (error) {
+                console.error('Error creating user:', error);
+                alert('Failed to create user.');
+            }
+        }
+
+        // Initialize
+        fetchUsers();
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
