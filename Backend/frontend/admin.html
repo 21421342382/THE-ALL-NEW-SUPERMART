@@ -53,6 +53,18 @@
             display: none;
             margin-top: 1rem;
         }
+        .loading-bar {
+            display: none;
+            width: 100%;
+            height: 5px;
+            background-color: #007bff;
+            animation: animate 1s infinite;
+        }
+        @keyframes animate {
+            0% { width: 0; }
+            50% { width: 100%; }
+            100% { width: 0; }
+        }
     </style>
 </head>
 <body>
@@ -69,12 +81,15 @@
             </div>
             <button type="submit">Login</button>
             <div id="errorMessage" class="error-message">Invalid credentials</div>
+            <div class="loading-bar"></div>
         </form>
     </div>
 
     <script>
         document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            // Show loading bar
+            document.querySelector('.loading-bar').style.display = 'block';
             
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
@@ -100,6 +115,9 @@
             } catch (error) {
                 console.error('Error:', error);
                 document.getElementById('errorMessage').style.display = 'block';
+            } finally {
+                // Hide loading bar
+                document.querySelector('.loading-bar').style.display = 'none';
             }
         });
     </script>

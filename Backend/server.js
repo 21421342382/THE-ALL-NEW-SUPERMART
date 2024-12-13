@@ -57,7 +57,7 @@ app.get('/api/stores/all', async (req, res) => {
         const stores = await Store.find();
         res.json({ success: true, stores });
     } catch (error) {
-        console.error('youhave reached Error fetching stores:', error);
+        console.error('Error fetching stores:', error);
         res.status(500).json({ success: false, error: 'Error fetching stores' });
     }
 });
@@ -93,6 +93,96 @@ app.delete('/api/stores/delete/:id', async (req, res) => {
     } catch (error) {
         console.error('Error deleting store:', error);
         res.status(500).json({ success: false, error: 'Error deleting store' });
+    }
+});
+
+// User Schema
+const userSchema = new mongoose.Schema({
+    cart: {
+        type: Array,
+        default: []
+    },
+    my_order_price: {
+        type: Number,
+        default: 0
+    },
+    orderHistory: {
+        type: Array,
+        default: []
+    },
+    price: {
+        type: Number,
+        default: 0
+    },
+    phone: {
+        type: String,
+        required: true
+    },
+    location: {
+        type: {
+            type: String,
+            enum: ['Point'],
+            default: 'Point'
+        },
+        coordinates: {
+            type: [Number],
+            required: true
+        }
+    },
+    orders: {
+        type: Array,
+        default: []
+    }
+});
+
+// User Model
+const User = mongoose.model('User', userSchema);
+
+// User Management Routes
+app.post('/api/users/create', async (req, res) => {
+    const { cart, my_order_price, orderHistory, price, phone, location, orders } = req.body;
+    const newUser = new User({ cart, my_order_price, orderHistory, price, phone, location, orders });
+    try {
+        await newUser.save();
+        res.status(201).json({ success: true, user: newUser });
+    } catch (error) {
+        console.error('Error creating user:', error);
+        res.status(500).json({ success: false, error: 'Error creating user' });
+    }
+});
+
+app.delete('/api/users/delete/:id', async (req, res) => {
+    try {
+        const result = await User.findByIdAndDelete(req.params.id);
+        if (!result) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        res.status(500).json({ success: false, error: 'Error deleting user' });
+    }
+});
+
+app.get('/api/users/all', async (req, res) => {
+    const result = await User.find();
+    if (result.success) {
+        res.json({ success: true, users: result.users });
+    } else {
+        res.status(500).json({ success: false, error: result.error });
+    }
+});
+
+app.put('/api/users/edit/:id', async (req, res) => {
+    try {
+        const updatedUser = await User.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updatedUser) {
+            return res.status(404).json({ success: false, error: 'User not found' });
+        }
+        res.json({ success: true, user: updatedUser });
+    } catch (error) {
+        console.error('Error editing user:', error);
+        res.status(500).json({ success: false, error: 'Error editing user' });
     }
 });
 
