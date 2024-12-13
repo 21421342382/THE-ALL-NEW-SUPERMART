@@ -24,24 +24,15 @@ mongoose.connect(process.env.MONGODB_URI, {
 
 // Store Schema
 const storeSchema = new mongoose.Schema({
-    storeName: {
-        type: String,
-        required: true
-    },
-    address: {
-        type: String,
-        required: true
-    },
+    storeName: { type: String, required: true },
+    address: { type: String, required: true },
     location: {
         type: {
             type: String,
             enum: ['Point'],
             default: 'Point'
         },
-        coordinates: {
-            type: [Number],
-            required: true
-        }
+        coordinates: { type: [Number], required: true }
     }
 });
 
@@ -50,6 +41,24 @@ storeSchema.index({ location: '2dsphere' });
 
 // Store Model
 const Store = mongoose.model('Store', storeSchema);
+
+// Product Schema
+const productSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    description: { type: String, required: true },
+    stock: { type: Boolean, required: true },
+    inner_category: { type: String, required: true },
+    category: { type: String, required: true },
+    image: { type: String, required: true }, // Store image URL
+    sale_price: { type: Number, required: true },
+    original_price: { type: Number, required: true },
+    avail_outlets: { type: [String], required: true },
+    weight: { type: Number, required: true },
+    weight_unit: { type: String, enum: ['kg', 'g'], required: true }
+});
+
+// Product Model
+const Product = mongoose.model('Product', productSchema);
 
 // Store Management Routes
 app.get('/api/stores/all', async (req, res) => {
@@ -96,43 +105,92 @@ app.delete('/api/stores/delete/:id', async (req, res) => {
     }
 });
 
+// Product Management Routes
+app.get('/api/products/all', async (req, res) => {
+    try {
+        const products = await Product.find();
+        res.json({ success: true, products });
+    } catch (error) {
+        console.error('Error fetching products:', error);
+        res.status(500).json({ success: false, error: 'Error fetching products' });
+    }
+});
 
+// Updated endpoint to create a product without file upload
+app.post('/api/products/create', async (req, res) => {
+    try {
+        const { name, description, stock, inner_category, category, image, sale_price, original_price, avail_outlets, weight, weight_unit } = req.body;
+
+        // Check if all required fields are present
+        if (!name || !description || stock === undefined || !inner_category || !category || !image || !sale_price || !original_price || !avail_outlets || !weight || !weight_unit) {
+            return res.status(400).json({ success: false, error: 'All fields are required.' });
+        }
+
+        const newProduct = new Product({
+            name,
+            description,
+            stock,
+            inner_category,
+            category,
+            image, // Use the image URL directly
+            sale_price,
+            original_price,
+            avail_outlets,
+            weight,
+            weight_unit
+        });
+
+        await newProduct.save();
+        res.json({ success: true, product: newProduct });
+    } catch (error) {
+        console.error('Error creating product:', error);
+        res.status(500).json({ success: false, error: 'Error creating product', details: error.message });
+    }
+});
+
+app.delete('/api/products/delete/:id', async (req, res) => {
+    try {
+        const result = await Product.findByIdAndDelete(req.params.id);
+        if (!result) {
+            return res.status(404).json({ success: false, error: 'Product not found' });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting product:', error);
+        res.status(500).json({ success: false, error: 'Error deleting product' });
+    }
+});
+
+// New endpoint to edit product details
+app.put('/api/products/edit/:id', async (req, res) => {
+    try {
+        const updatedProduct = await Product.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updatedProduct) {
+            return res.status(404).json({ success: false, error: 'Product not found' });
+        }
+        res.json({ success: true, product: updatedProduct });
+    } catch (error) {
+        console.error('Error editing product:', error);
+        res.status(500).json({ success: false, error: 'Error editing product' });
+    }
+});
+
+// User Schema
 const userSchema = new mongoose.Schema({
-    cart: {
-        type: Array,
-        default: []
-    },
-    my_order_price: {
-        type: Number,
-        default: 0
-    },
-    orderHistory: {
-        type: Array,
-        default: []
-    },
-    price: {
-        type: Number,
-        default: 0
-    },
-    phone: {
-        type: String,
-        required: true
-    },
+    cart: { type: Array, default: [] },
+    my_order_price: { type: Number, default: 0 },
+    orderHistory: { type: Array, default: [] },
+    price: { type: Number, default: 0 },
+    phone: { type: String, required: true },
     location: {
         type: {
             type: String,
             enum: ['Point'],
             default: 'Point'
         },
-        coordinates: {
-            type: [Number],
-            required: true
-        }
+        coordinates: { type: [Number], required: true }
     },
-    orders: {
-        type: Array,
-        default: []
-    }
+    orders: { type: Array, default: [] }
 });
 
 // User Model
@@ -182,7 +240,6 @@ app.get('/api/users/all', async (req, res) => {
         res.status(500).json({ success: false, error: 'Error fetching users' });
     }
 });
-
 
 app.put('/api/users/edit/:id', async (req, res) => {
     try {
