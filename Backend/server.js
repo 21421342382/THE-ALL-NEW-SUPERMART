@@ -2,9 +2,18 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+const multer = require('multer'); // Import multer for file uploads
+const cloudinary = require('cloudinary').v2; // Import Cloudinary
 require('dotenv').config();
 
 const app = express();
+
+// Configure Cloudinary
+cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key: process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET
+});
 
 // Middleware
 app.use(cors());
@@ -60,6 +69,38 @@ const productSchema = new mongoose.Schema({
 // Product Model
 const Product = mongoose.model('Product', productSchema);
 
+// Set up multer for file uploads
+const storage = multer.memoryStorage(); // Store files in memory
+const upload = multer({ storage: storage });
+
+// Endpoint to handle image upload
+app.post('/api/upload', upload.single('file'), async (req, res) => {
+    console.log('Upload endpoint hit'); // Debug log
+    if (!req.file) {
+        console.log('No file uploaded'); // Debug log
+        return res.status(400).json({ success: false, error: 'No file uploaded.' });
+    }
+
+    try {
+        // Create a stream to upload the file
+        const stream = cloudinary.uploader.upload_stream({ resource_type: 'image' }, (error, result) => {
+            if (error) {
+                console.error('Error uploading to Cloudinary:', error); // Log the error
+                return res.status(500).json({ success: false, error: 'Error uploading image to Cloudinary' });
+            }
+            // Send the response back to the client
+            console.log("Response returned")
+            res.json({ success: true, url: result.secure_url }); // Return the public URL
+        });
+
+        // End the stream with the file buffer
+        stream.end(req.file.buffer);
+    } catch (error) {
+        console.error('Error uploading image:', error);
+        res.status(500).json({ success: false, error: 'Error uploading image' });
+    }
+});
+
 // Store Management Routes
 app.get('/api/stores/all', async (req, res) => {
     try {
@@ -107,16 +148,27 @@ app.delete('/api/stores/delete/:id', async (req, res) => {
 
 // Product Management Routes
 app.get('/api/products/all', async (req, res) => {
+    const page = parseInt(req.query.page) || 1; // Default to page 1
+    const limit = parseInt(req.query.limit) || 5; // Default to 5 items per page
+    const skip = (page - 1) * limit;
+
     try {
-        const products = await Product.find();
-        res.json({ success: true, products });
+        const products = await Product.find().skip(skip).limit(limit);
+        const totalProducts = await Product.countDocuments();
+
+        res.json({
+            success: true,
+            products,
+            totalPages: Math.ceil(totalProducts / limit),
+            currentPage: page,
+        });
     } catch (error) {
         console.error('Error fetching products:', error);
         res.status(500).json({ success: false, error: 'Error fetching products' });
     }
 });
 
-// Updated endpoint to create a product without file upload
+// Endpoint to create a product
 app.post('/api/products/create', async (req, res) => {
     try {
         const { name, description, stock, inner_category, category, image, sale_price, original_price, avail_outlets, weight, weight_unit } = req.body;
@@ -279,7 +331,7 @@ app.post('/api/admin/login', (req, res) => {
 // Error handling middleware
 app.use((err, req, res, next) => {
     console.error(err.stack);
-    res.status(500).send('Something broke!');
+    res.status(500).json({ success: false, error: 'Something broke!' }); // Ensure this is JSON
 });
 
 // Start server
