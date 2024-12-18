@@ -69,6 +69,22 @@ const productSchema = new mongoose.Schema({
 // Product Model
 const Product = mongoose.model('Product', productSchema);
 
+// Delivery Schema
+const deliverySchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    phone: { type: String, required: true },
+    store: { type: [String], default: [], required: true },
+    order_history: { type: Object, default: {} },
+    total_order_delivered: { type: Number, default: 0 },
+    amount_of_orders_delivered: { type: Number, default: 0 },
+    busy: { type: Boolean, default: false },
+    offline: { type: Boolean, default: false },
+    current_order: { type: Object, default: {} }
+});
+
+// Delivery Model
+const Delivery = mongoose.model('Delivery', deliverySchema);
+
 // Set up multer for file uploads
 const storage = multer.memoryStorage(); // Store files in memory
 const upload = multer({ storage: storage });
@@ -224,6 +240,68 @@ app.put('/api/products/edit/:id', async (req, res) => {
     } catch (error) {
         console.error('Error editing product:', error);
         res.status(500).json({ success: false, error: 'Error editing product' });
+    }
+});
+
+// Delivery Management Routes
+app.get('/api/delivery/all', async (req, res) => {
+    try {
+        const deliveries = await Delivery.find();
+        res.json({ success: true, deliveries });
+    } catch (error) {
+        console.error('Error fetching deliveries:', error);
+        res.status(500).json({ success: false, error: 'Error fetching deliveries' });
+    }
+});
+
+app.post('/api/delivery/create', async (req, res) => {
+    try {
+        const { name, phone, store, order_history, total_order_delivered, amount_of_orders_delivered, busy, offline, current_order } = req.body;
+
+        const newDelivery = new Delivery({
+            name,
+            phone,
+            store,
+            order_history,  // Ensure this is being passed correctly
+            total_order_delivered,
+            amount_of_orders_delivered,
+            busy,
+            offline,
+            current_order  // Ensure this is being passed correctly
+        });
+
+        await newDelivery.save();
+        res.json({ success: true, delivery: newDelivery });
+    } catch (error) {
+        console.error('Error creating delivery:', error);
+        res.status(500).json({ success: false, error: 'Error creating delivery' });
+    }
+});
+
+app.delete('/api/delivery/delete/:id', async (req, res) => {
+    try {
+        const result = await Delivery.findByIdAndDelete(req.params.id);
+        if (!result) {
+            return res.status(404).json({ success: false, error: 'Delivery man not found' });
+        }
+        res.json({ success: true });
+    } catch (error) {
+        console.error('Error deleting delivery:', error);
+        res.status(500).json({ success: false, error: 'Error deleting delivery' });
+    }
+});
+
+// New endpoint to edit delivery details
+app.put('/api/delivery/edit/:id', async (req, res) => {
+    try {
+        const updatedDelivery = await Delivery.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!updatedDelivery) {
+            return res.status(404).json({ success: false, error: 'Delivery man not found' });
+        }
+        res.json({ success: true, delivery: updatedDelivery });
+    } catch (error) {
+        console.error('Error editing delivery:', error);
+        res.status(500).json({ success: false, error: 'Error editing delivery' });
     }
 });
 

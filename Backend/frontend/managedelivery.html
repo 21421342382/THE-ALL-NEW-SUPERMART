@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Deliveries</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/css/bootstrap.min.css">
+    <style>
+        .loader {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+        }
+        .pagination button {
+            margin: 0 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h2 class="mb-4">Manage Deliveries</h2>
+
+        <!-- Search Bar -->
+        <div class="input-group mb-3">
+            <input type="text" id="searchInput" class="form-control" placeholder="Search Delivery by Name...">
+            <button class="btn btn-primary" onclick="searchDeliveries()">Search</button>
+        </div>
+
+        <!-- Create New Delivery Button -->
+        <button class="btn btn-success mb-3" onclick="openCreateModal()">Create New Delivery</button>
+
+        <!-- Delivery Table -->
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Name</th>
+                    <th>Phone</th>
+                    <th>Store</th>
+                    <th>Order History</th>
+                    <th>Total Orders Delivered</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="deliveryTable">
+                <!-- Dynamic rows will be appended here -->
+            </tbody>
+        </table>
+
+        <!-- Pagination -->
+        <div class="pagination" id="pagination"></div>
+
+        <!-- Loader -->
+        <div class="loader" id="loader">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+
+        <!-- Edit Modal -->
+        <div class="modal" id="editModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Edit Delivery</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="editForm">
+                            <div class="mb-3">
+                                <label for="editName" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="editName">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editPhone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="editPhone">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editStore" class="form-label">Store</label>
+                                <select multiple class="form-control" id="editStore"></select>
+                            </div>
+                            <div class="mb-3">
+                                <label for="editOrderHistory" class="form-label">Order History</label>
+                                <input type="text" class="form-control" id="editOrderHistory">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editTotalOrdersDelivered" class="form-label">Total Orders Delivered</label>
+                                <input type="number" class="form-control" id="editTotalOrdersDelivered">
+                            </div>
+                            <div class="mb-3">
+                                <label for="editStatus" class="form-label">Status</label>
+                                <select class="form-control" id="editStatus">
+                                    <option value="busy">Busy</option>
+                                    <option value="available">Available</option>
+                                </select>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="saveChanges()">Save Changes</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Modal -->
+        <div class="modal" id="createModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Create Delivery</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        <form id="createForm">
+                            <div class="mb-3">
+                                <label for="createName" class="form-label">Name</label>
+                                <input type="text" class="form-control" id="createName">
+                            </div>
+                            <div class="mb-3">
+                                <label for="createPhone" class="form-label">Phone</label>
+                                <input type="text" class="form-control" id="createPhone">
+                            </div>
+                            <div class="mb-3">
+                                <label for="createStore" class="form-label">Store</label>
+                                <select multiple class="form-control" id="createStore"></select>
+                            </div>
+                            <button type="button" class="btn btn-primary" onclick="createDelivery()">Create Delivery</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        let deliveries = [];
+        let stores = []; // Store the fetched stores
+        let currentPage = 1;
+        const rowsPerPage = 5;
+
+        // Show Loader
+        function showLoader() {
+            document.getElementById('loader').style.display = 'block';
+        }
+
+        // Hide Loader
+        function hideLoader() {
+            document.getElementById('loader').style.display = 'none';
+        }
+
+        // Fetch Deliveries from API
+        async function fetchDeliveries() {
+            showLoader();
+            try {
+                const response = await fetch('https://the-all-new-supermart.onrender.com/api/delivery/all');
+                if (!response.ok) throw new Error('Failed to fetch deliveries');
+                const data = await response.json();
+                deliveries = data.deliveries;
+                renderTable();
+            } catch (error) {
+                console.error('Error fetching deliveries:', error);
+                alert('Failed to load delivery data. Please try again.');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Fetch Stores from API
+        async function fetchStores() {
+            showLoader();
+            try {
+                const response = await fetch('https://the-all-new-supermart.onrender.com/api/stores/all');
+                if (!response.ok) throw new Error('Failed to fetch stores');
+                const data = await response.json();
+                stores = data.stores; // Store the fetched stores
+                populateStoreSelect(stores);
+            } catch (error) {
+                console.error('Error fetching stores:', error);
+                alert('Failed to load store data. Please try again.');
+            } finally {
+                hideLoader();
+            }
+        }
+
+        // Populate Store Select
+        function populateStoreSelect(stores) {
+            const createStoreSelect = document.getElementById('createStore');
+            const editStoreSelect = document.getElementById('editStore');
+            createStoreSelect.innerHTML = '';
+            editStoreSelect.innerHTML = '';
+
+            stores.forEach(store => {
+                const option = document.createElement('option');
+                option.value = store._id; // Assuming store has an _id field
+                option.textContent = store.storeName; // Assuming store has a storeName field
+                createStoreSelect.appendChild(option.cloneNode(true));
+                editStoreSelect.appendChild(option);
+            });
+        }
+
+        // Render Delivery Table
+        function renderTable() {
+            const tableBody = document.getElementById('deliveryTable');
+            tableBody.innerHTML = '';
+            const start = (currentPage - 1) * rowsPerPage;
+            const end = start + rowsPerPage;
+            const paginatedDeliveries = deliveries.slice(start, end);
+
+            paginatedDeliveries.forEach((delivery, index) => {
+                const row = document.createElement('tr');
+                // Map store IDs to store names
+                const deliveryStores = delivery.store.map(storeId => {
+                    const store = stores.find(s => s._id === storeId);
+                    return store ? store.storeName : storeId; // Fallback to ID if not found
+                });
+
+                row.innerHTML = `
+                    <td>${start + index + 1}</td>
+                    <td>${delivery.name}</td>
+                    <td>${delivery.phone}</td>
+                    <td>${deliveryStores.join(', ')}</td>
+                    <td>${JSON.stringify(delivery.order_history)}</td> <!-- Display order history as JSON -->
+                    <td>${delivery.total_order_delivered}</td>
+                    <td>${delivery.busy ? 'Busy' : 'Available'}</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="openEditModal('${delivery._id}')">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteDelivery('${delivery._id}')">Delete</button>
+                    </td>
+                `;
+                tableBody.appendChild(row);
+            });
+
+            renderPagination();
+        }
+
+        // Render Pagination
+        function renderPagination() {
+            const pagination = document.getElementById('pagination');
+            pagination.innerHTML = '';
+            const totalPages = Math.ceil(deliveries.length / rowsPerPage);
+
+            for (let i = 1; i <= totalPages; i++) {
+                const button = document.createElement('button');
+                button.textContent = i;
+                button.className = `btn ${i === currentPage ? 'btn-primary' : 'btn-outline-primary'}`;
+                button.onclick = () => {
+                    currentPage = i;
+                    renderTable();
+                };
+                pagination.appendChild(button);
+            }
+        }
+
+        // Search Deliveries
+        function searchDeliveries() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const filteredDeliveries = deliveries.filter(delivery => delivery.name.toLowerCase().includes(query));
+            deliveries = query ? filteredDeliveries : deliveries;
+            currentPage = 1;
+            renderTable();
+        }
+
+        // Open Edit Modal
+        function openEditModal(deliveryId) {
+            const delivery = deliveries.find(d => d._id === deliveryId);
+            document.getElementById('editName').value = delivery.name;
+            document.getElementById('editPhone').value = delivery.phone;
+            document.getElementById('editOrderHistory').value = JSON.stringify(delivery.order_history); // Display as JSON
+            document.getElementById('editTotalOrdersDelivered').value = delivery.total_order_delivered;
+            document.getElementById('editStatus').value = delivery.busy ? 'busy' : 'available';
+
+            // Set selected stores
+            const editStoreSelect = document.getElementById('editStore');
+            Array.from(editStoreSelect.options).forEach(option => {
+                option.selected = delivery.store.includes(option.value);
+            });
+
+            document.getElementById('editModal').style.display = 'block';
+        }
+
+        // Save Changes
+        async function saveChanges() {
+            const deliveryId = deliveries.find(d => d.name === document.getElementById('editName').value)._id;
+            const updatedDelivery = {
+                name: document.getElementById('editName').value,
+                phone: document.getElementById('editPhone').value,
+                store: Array.from(document.getElementById('editStore').selectedOptions).map(option => option.value),
+                order_history: JSON.parse(document.getElementById('editOrderHistory').value), // Parse JSON
+                total_order_delivered: document.getElementById('editTotalOrdersDelivered').value,
+                busy: document.getElementById('editStatus').value === 'busy',
+                offline: false
+            };
+            const response = await fetch(`https://the-all-new-supermart.onrender.com/api/delivery/edit/${deliveryId}`, {
+                method: 'PUT',
+                body: JSON.stringify(updatedDelivery),
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('Delivery updated successfully');
+                fetchDeliveries();
+            } else {
+                alert('Error updating delivery');
+            }
+            document.getElementById('editModal').style.display = 'none';
+        }
+
+        // Delete Delivery
+        async function deleteDelivery(deliveryId) {
+            const response = await fetch(`https://the-all-new-supermart.onrender.com/api/delivery/delete/${deliveryId}`, { method: 'DELETE' });
+            const data = await response.json();
+            if (data.success) {
+                alert('Delivery deleted successfully');
+                fetchDeliveries();
+            } else {
+                alert('Error deleting delivery');
+            }
+        }
+
+        // Open Create Modal
+        function openCreateModal() {
+            fetchStores(); // Fetch stores when opening the create modal
+            document.getElementById('createModal').style.display = 'block';
+        }
+
+        // Create Delivery
+        async function createDelivery() {
+            const newDelivery = {
+                name: document.getElementById('createName').value,
+                phone: document.getElementById('createPhone').value,
+                store: Array.from(document.getElementById('createStore').selectedOptions).map(option => option.value),
+                order_history: {}, // Initialize as an empty object
+                total_order_delivered: 0, // Initialize to 0
+                amount_of_orders_delivered: 0,
+                busy: false,
+                offline: false,
+                current_order: {}
+            };
+
+            const response = await fetch('https://the-all-new-supermart.onrender.com/api/delivery/create', {
+                method: 'POST',
+                body: JSON.stringify(newDelivery),
+                headers: {
+                    'Content-Type': 'application/json',
+                }
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('Delivery created successfully');
+                fetchDeliveries();
+            } else {
+                alert('Error creating delivery');
+            }
+            document.getElementById('createModal').style.display = 'none';
+        }
+
+        // Initialize on Load
+        window.onload = () => {
+            fetchDeliveries();
+            fetchStores(); // Fetch stores on load
+        };
+
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.1.3/js/bootstrap.min.js"></script>
+</body>
+</html>
